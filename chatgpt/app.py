@@ -12,9 +12,9 @@ from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("SMTP_SERVER", "smtp.gmail.com")
 os.environ.setdefault("SMTP_PORT", "587")
-os.environ.setdefault("EMAIL_SENDER", "animeguy055@gmail.com")
-os.environ.setdefault("EMAIL_PASSWORD", "zuby ghtn xfbt itco")
-os.environ.setdefault("DOCTOR_EMAIL", "sarthak.molu08@gmail.com")
+os.environ.setdefault("EMAIL_SENDER", "")
+os.environ.setdefault("EMAIL_PASSWORD", "")
+os.environ.setdefault("DOCTOR_EMAIL", "")
 
 SYSTEM_PROMPT = """You are ReViveCare, an AI-powered post-discharge recovery support chatbot.
 Your role is to support patients emotionally and informationally during recovery after surgery or injury.
