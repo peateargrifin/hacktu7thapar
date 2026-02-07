@@ -9,7 +9,7 @@ from langchain_groq import ChatGroq
 from langchain_core.messages import HumanMessage, SystemMessage, AIMessage
 
 
-os.environ.setdefault("GROQ_API_KEY", "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")
+os.environ.setdefault("GROQ_API_KEY", "")
 os.environ.setdefault("SMTP_SERVER", "smtp.gmail.com")
 os.environ.setdefault("SMTP_PORT", "587")
 os.environ.setdefault("EMAIL_SENDER", "animeguy055@gmail.com")
