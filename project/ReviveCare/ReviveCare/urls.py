@@ -42,4 +42,7 @@ urlpatterns = [
     path('sr/start/', start_workout, name='start_workout'),  # Start workout API
     path('sr/status/', get_workout_status, name='get_workout_status'),  # Get status API
     path('sr/reset/', reset_workout, name='reset_workout'),  # Reset workout API
+    
+    # Emergency API
+    path('api/emergency/call', trigger_emergency_call, name='trigger_emergency_call'),
 ]

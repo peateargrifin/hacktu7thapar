@@ -209,11 +209,17 @@ def parse_response(raw_response):
         return "I apologize, but I'm having trouble processing your request. Please try rephrasing your question.", 0.0
 
 
-def send_email_alert(patient, user_query, patient_response, seriousness_score):
-    """Send email alert to doctor when seriousness score is high"""
+def handle_critical_alert(patient, user_query, patient_response, seriousness_score):
+    """
+    Handle critical alerts by sending an email and initiating a Twilio call.
+    This replaces the old send_email_alert to better reflect its dual purpose.
+    """
+    print(f"🚨 PROCESSING CRITICAL ALERT FOR: {patient.name} (Score: {seriousness_score})")
+    
+    # 1. Send Email Alert
     try:
-        smtp_server = os.environ.get("SMTP_SERVER")
-        smtp_port = int(os.environ.get("SMTP_PORT"))
+        smtp_server = os.environ.get("SMTP_SERVER", "smtp.gmail.com")
+        smtp_port = int(os.environ.get("SMTP_PORT", "587"))
         sender_email = os.environ.get("EMAIL_SENDER")
         sender_password = os.environ.get("EMAIL_PASSWORD")
         doctor_email = os.environ.get("DOCTOR_EMAIL")
@@ -258,24 +264,31 @@ This is an automated alert from the ReViveCare post-discharge monitoring system.
         
         print(f"✅ EMAIL ALERT SENT TO DOCTOR: {doctor_email}")
         
-        # Make Twilio phone call to doctor
-        try:
+    except Exception as e:
+        print(f"⚠️ EMAIL SEND FAILED: {str(e)}")
+
+    # 2. Make Twilio phone call to doctor
+    try:
+        if TWILIO_ACCOUNT_SID and TWILIO_AUTH_TOKEN and TWILIO_PHONE_NUMBER and DOCTOR_PHONE_NUMBER:
             client = Client(TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN)
+            
+            # Updated message as per requirements
+            # "saying this patent has erious signs on our chat"
+            message_text = f"This is an urgent message from ReVive Care. Patient {patient.name} has serious signs on our chat. Please check the dashboard immediately."
             
             call = client.calls.create(
                 to=DOCTOR_PHONE_NUMBER,
                 from_=TWILIO_PHONE_NUMBER,
-                twiml=f'<Response><Say voice="alice">Urgent alert from ReViveCare. Patient {patient.name} has reported concerning symptoms. Please check your email immediately for details.</Say></Response>'
+                twiml=f'<Response><Say voice="alice" language="en-US">{message_text}</Say></Response>'
             )
             
             print(f"✅ PHONE CALL INITIATED TO DOCTOR: {DOCTOR_PHONE_NUMBER}")
             print(f"   Call SID: {call.sid}")
+        else:
+            print("⚠️ TWILIO CREDENTIALS MISSING - SKIPPING CALL")
             
-        except Exception as call_error:
-            print(f"⚠️ PHONE CALL FAILED: {str(call_error)}")
-        
-    except Exception as e:
-        print(f"⚠️ EMAIL SEND FAILED: {str(e)}")
+    except Exception as call_error:
+        print(f"⚠️ PHONE CALL FAILED: {str(call_error)}")
 
 
 @require_http_methods(["POST"])
@@ -341,7 +354,7 @@ def chatbot_send(request):
         
         # Send email alert if high seriousness
         if seriousness_score > 0.75:
-            send_email_alert(patient, user_message, patient_response, seriousness_score)
+            handle_critical_alert(patient, user_message, patient_response, seriousness_score)
         
         return JsonResponse({
             'success': True,
@@ -354,6 +367,61 @@ def chatbot_send(request):
     except Exception as e:
         print(f"Error in chatbot_send: {e}")
         return JsonResponse({'success': False, 'error': 'Server error'})
+
+
+@csrf_exempt
+@require_http_methods(["POST"])
+def trigger_emergency_call(request):
+    """
+    Explicitly trigger an emergency IVR call and email alert.
+    Expected payload: {'message': '...', 'severity': 0.95, 'patient_id': 123}
+    """
+    try:
+        data = json.loads(request.body)
+        patient_id = data.get('patient_id') or request.session.get('patient_id')
+        user_message = data.get('message', 'Emergency triggered manually')
+        severity = float(data.get('severity', 0.95))
+        
+        if not patient_id:
+            # Fallback for demo/testing without session
+            if data.get('force_demo'):
+                # Create a dummy patient object for the alert handler
+                class DummyPatient:
+                    def __init__(self):
+                        self.name = "Demo Patient"
+                        self.email = "demo@example.com"
+                        self.info = "Demo Medical Context: Post-surgery recovery"
+                
+                patient = DummyPatient()
+                patient_name = patient.name
+            else:
+                return JsonResponse({'success': False, 'error': 'Not authenticated'})
+        else:
+            try:
+                patient = Patient.objects.get(id=patient_id)
+                patient_name = patient.name
+            except Patient.DoesNotExist:
+                return JsonResponse({'success': False, 'error': 'Patient not found'})
+
+        # Reuse the centralized alert handler
+        try:
+            # We create a dummy patient response for the log
+            system_response = "Emergency Triggered via API"
+            
+            handle_critical_alert(patient, user_message, system_response, severity)
+            
+            return JsonResponse({
+                'success': True, 
+                'message': 'Emergency alerts initiated via handle_critical_alert',
+            })
+            
+        except Exception as e:
+            print(f"Emergency trigger error: {e}")
+            return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+    except Exception as e:
+        print(f"Top-level emergency trigger error: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
 def exercise(request):
