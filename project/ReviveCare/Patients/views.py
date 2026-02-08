@@ -393,13 +393,11 @@ def trigger_emergency_call(request):
                         self.info = "Demo Medical Context: Post-surgery recovery"
                 
                 patient = DummyPatient()
-                patient_name = patient.name
             else:
                 return JsonResponse({'success': False, 'error': 'Not authenticated'})
         else:
             try:
                 patient = Patient.objects.get(id=patient_id)
-                patient_name = patient.name
             except Patient.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Patient not found'})
 
@@ -407,6 +405,13 @@ def trigger_emergency_call(request):
         try:
             # We create a dummy patient response for the log
             system_response = "Emergency Triggered via API"
+            
+            # Temporarily override DOCTOR_PHONE_NUMBER if target_phone is provided
+            target_phone_override = data.get('target_phone')
+            original_doctor_phone = os.environ.get("DOCTOR_PHONE_NUMBER")
+            
+            if target_phone_override:
+                os.environ["DOCTOR_PHONE_NUMBER"] = target_phone_override
             
             handle_critical_alert(patient, user_message, system_response, severity)
             
